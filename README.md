@@ -1,9 +1,11 @@
 # Meeting Effectiveness Analytics Platform  
 ## Senior Project – CSE 499
 
-The **Meeting Effectiveness Analytics Platform** is a web-based enterprise application designed to help teams host online meetings, collect structured feedback, and analyze meeting effectiveness using analytics and AI-driven insights. The system supports real-time video and audio meetings with multiple participants and provides post-meeting analysis to improve decision-making, productivity, and meeting quality over time.
+The **Meeting Effectiveness Analytics Website** is a web-based enterprise application designed to help teams host online meetings, collect structured feedback, and analyze meeting effectiveness using analytics and AI-driven insights. The system supports real-time video and audio meetings with multiple participants and provides post-meeting analysis to improve decision-making, productivity, and meeting quality over time.
 
 This project is developed as a senior capstone and emphasizes enterprise-level software engineering principles, system architecture, analytics, and applied learning of new technologies.
+
+Video Demo: TBD
 
 ---
 
@@ -16,7 +18,7 @@ Meetings consume significant organizational time and resources, yet many teams l
 ## Core Features
 
 ### Meeting & Communication
-- Real-time video and audio meeting hosting (5+ participants)
+- Real-time video and audio meeting hosting
 - Join and leave meetings via web browser
 - Mute and unmute microphone
 - Enable and disable camera
@@ -65,7 +67,7 @@ Meetings consume significant organizational time and resources, yet many teams l
 - External AI API (TBD)
 
 ### Infrastructure
-- Cloud hosting (Render or equivalent)
+- Cloud hosting
 - Git and GitHub for version control
 
 ---
