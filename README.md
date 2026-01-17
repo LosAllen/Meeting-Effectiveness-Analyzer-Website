@@ -1,113 +1,120 @@
-Meeting Effectiveness Analytics Platform
-Senior Project – CSE 499
+# Meeting Effectiveness Analytics Platform  
+## Senior Project – CSE 499
 
-The Meeting Effectiveness Analytics Platform is a web-based enterprise application designed to help teams host online meetings, collect structured feedback, and analyze meeting effectiveness using analytics and AI-driven insights. The system supports real-time video/audio meetings with multiple participants and provides post-meeting analysis to improve decision-making, productivity, and meeting quality over time.
+The **Meeting Effectiveness Analytics Platform** is a web-based enterprise application designed to help teams host online meetings, collect structured feedback, and analyze meeting effectiveness using analytics and AI-driven insights. The system supports real-time video and audio meetings with multiple participants and provides post-meeting analysis to improve decision-making, productivity, and meeting quality over time.
 
 This project is developed as a senior capstone and emphasizes enterprise-level software engineering principles, system architecture, analytics, and applied learning of new technologies.
 
-Problem Statement
+---
+
+## Problem Statement
 
 Meetings consume significant organizational time and resources, yet many teams lack objective tools to measure meeting quality, cost, and outcomes. This project addresses that gap by providing a platform that not only hosts meetings but also evaluates their effectiveness using structured feedback, analytics, and AI-assisted analysis.
 
-Core Features
-Meeting & Communication
+---
 
-Real-time video and audio meeting hosting (5+ participants)
+## Core Features
 
-Join/leave meetings via browser
+### Meeting & Communication
+- Real-time video and audio meeting hosting (5+ participants)
+- Join and leave meetings via web browser
+- Mute and unmute microphone
+- Enable and disable camera
+- Secure meeting access
 
-Mute/unmute microphone and enable/disable camera
+### Analytics & Insights
+- Post-meeting participant feedback surveys
+- Rule-based meeting effectiveness scoring
+- Analytics dashboards showing trends over time
+- Cost and duration analysis of meetings
 
-Secure meeting access
+### AI-Based Analysis
+- AI-generated meeting summaries
+- Action item extraction from meeting notes or transcripts
+- AI-generated insights to identify improvement patterns
+- AI used as decision-support, not authoritative output
 
-Analytics & Insights
+### Enterprise Software Features
+- User authentication
+- Role-based access control
+- Team and meeting management
+- RESTful backend API
+- Persistent data storage
+- Modular and maintainable architecture
 
-Post-meeting participant feedback surveys
+---
 
-Rule-based meeting effectiveness scoring
+## Technology Stack
 
-Analytics dashboards showing trends over time
+### Frontend
+- HTML
+- CSS
+- JavaScript
 
-Cost and duration analysis of meetings
+### Backend
+- Node.js
+- Express
 
-AI-Based Analysis
+### Database
+- PostgreSQL
 
-AI-generated meeting summaries
+### Real-Time Communication
+- WebRTC
 
-Action item extraction from meeting notes or transcripts
+### AI Integration
+- External AI API (TBD)
 
-Insight generation to identify patterns and improvement areas
+### Infrastructure
+- Cloud hosting (Render or equivalent)
+- Git and GitHub for version control
 
-AI used as decision-support, not authoritative output
+---
 
-Enterprise Software Features
+## System Architecture Overview
 
-User authentication and role-based access control
+- **Client (Web Browser)**  
+  Handles user interface, meeting interaction, and video/audio capture.
 
-Team and meeting management
+- **Backend API**  
+  Manages authentication, meeting management, analytics, and persistence.
 
-RESTful backend API
+- **Real-Time Layer**  
+  Handles signaling and media streaming using WebRTC.
 
-Persistent data storage
+- **AI Services**  
+  Performs asynchronous analysis of meeting data.
 
-Modular, maintainable system architecture
+- **Database**  
+  Stores users, teams, meetings, feedback, and analytics.
 
-Technology Stack (Planned)
+---
 
-Frontend: HTML, CSS, JavaScript (React or Vanilla JS)
+## Learning Objectives
 
-Backend: Node.js with Express (or ASP.NET Core)
+This project demonstrates learning and application of:
+- Real-time web communication (WebRTC)
+- AI integration and evaluation
+- Enterprise web application architecture
+- Data modeling and analytics
+- Secure authentication and authorization
+- Cloud deployment and configuration
+- Requirements analysis and iterative development
 
-Database: PostgreSQL
+---
 
-Real-Time Communication: WebRTC
+## Project Status
 
-AI Integration: External AI API (TBD)
+- [ ] Requirements finalized
+- [ ] Architecture designed
+- [ ] Video/audio streaming prototype
+- [ ] AI analysis prototype
+- [ ] Analytics dashboards
+- [ ] Deployment
+- [ ] Final presentation
 
-Hosting: Cloud-based deployment (Render or equivalent)
+---
 
-Version Control: Git & GitHub
-
-System Architecture Overview
-
-Client (Web Browser): UI, video/audio capture, meeting interaction
-
-Backend API: Authentication, meeting management, analytics processing
-
-Real-Time Layer: WebRTC signaling and media streaming
-
-AI Services: Asynchronous processing for summaries and insights
-
-Database: Persistent storage for users, meetings, feedback, analytics
-
-Learning Objectives
-
-This project demonstrates learning in:
-
-Real-time web communication (WebRTC)
-
-AI system integration and evaluation
-
-Enterprise application architecture
-
-Data modeling and analytics
-
-Secure authentication and authorization
-
-Cloud deployment and configuration
-
-Requirements analysis and iterative development
-
-Project Status
-
-In Development
-This project is actively being developed as part of the CSE 499 Senior Project course.
-
-Disclaimer
-
-This system is intended as a decision-support tool. AI-generated insights are informational and may contain inaccuracies. Users should not rely solely on AI outputs for critical decisions.
-
-Author
+## Author
 
 Lincoln Allen
 Software Development – Senior Project
