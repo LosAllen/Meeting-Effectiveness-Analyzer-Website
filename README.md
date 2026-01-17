@@ -117,5 +117,7 @@ This project demonstrates learning and application of:
 ## Author
 
 Lincoln Allen
+
 Software Development – Senior Project
+
 BYU–Idaho
