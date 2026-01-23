@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meeting</title>
+    <link rel="stylesheet" href="./styles/index.css" />
+  </head>
+  <body>
+    <h1>Meeting</h1>
+
+    <div class="card">
+      <div class="row">
+        <button id="hostBtn" class="primary">Host meeting</button>
+      </div>
+
+      <div class="row" style="margin-top: 18px;">
+        <input id="codeInput" placeholder="Enter meeting code" />
+        <button id="joinBtn">Join with code</button>
+      </div>
+
+      <p class="muted">
+        Hosting creates a code like <code>ABCD12</code>. Share it so others can join.
+      </p>
+    </div>
+
+    <script src="./main.js"></script>
+  </body>
+</html>

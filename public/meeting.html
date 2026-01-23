@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meeting</title>
+    <link rel="stylesheet" href="./styles/meeting.css" />
+  </head>
+  <body>
+    <header>
+      <strong>Meeting</strong>
+      <span class="pill">Code: <span id="codeLabel"></span></span>
+      <span class="pill">Role: <span id="roleLabel"></span></span>
+      <span class="status" id="status">Starting…</span>
+    </header>
+
+    <button id="enableAudioBtn" class="enableAudioBtn" type="button">
+      Click to enable audio
+    </button>
+
+
+    <div class="wrap" id="grid">
+      
+    </div>
+
+    <div class="controls">
+      <button id="muteBtn">Mute mic</button>
+      <button id="videoBtn">Disable video</button>
+      <button id="leaveBtn" class="danger">Leave</button>
+    </div>
+
+    <script src="./meeting.js"></script>
+  </body>
+</html>
