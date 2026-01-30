@@ -11,6 +11,32 @@ const app = express();
 const publicDir = path.join(__dirname, "..", "public");
 app.use(express.static(publicDir));
 
+/**
+ * Optional ICE config endpoint.
+ * If you set TURN_* env vars on Render, clients will use TURN (reliable).
+ * Otherwise it returns STUN-only (works on some networks).
+ */
+app.get("/ice", (req, res) => {
+  const iceServers = [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:global.stun.twilio.com:3478" }
+  ];
+
+  const turnUrl = process.env.TURN_URL;
+  const turnUsername = process.env.TURN_USERNAME;
+  const turnCredential = process.env.TURN_CREDENTIAL;
+
+  if (turnUrl && turnUsername && turnCredential) {
+    iceServers.push({
+      urls: turnUrl,
+      username: turnUsername,
+      credential: turnCredential
+    });
+  }
+
+  res.json({ iceServers });
+});
+
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 

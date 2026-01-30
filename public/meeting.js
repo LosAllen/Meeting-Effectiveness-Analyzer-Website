@@ -20,12 +20,10 @@ const peerConnections = new Map(); // peerId -> RTCPeerConnection
 const remoteTiles = new Map();     // peerId -> tile object
 const peers = new Set();           // peerIds currently known (for counts)
 
+const pendingIce = new Map();      
+
 let micMuted = false;
 let videoOff = false;
-
-const rtcConfig = {
-  iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-};
 
 const enableAudioBtn = document.getElementById("enableAudioBtn");
 let audioUnlocked = false;
@@ -56,7 +54,6 @@ enableAudioBtn?.addEventListener("click", async () => {
   }
 });
 
-
 function wsUrl() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   return `${proto}//${location.host}`;
@@ -83,7 +80,7 @@ function makeTile(label, muted = false) {
   video.playsInline = true;
   video.muted = muted;
 
-  // Mute badge overlay (works for any tile)
+  // Mute badge overlay
   const badge = document.createElement("div");
   badge.className = "badge";
   badge.title = "Muted";
@@ -108,7 +105,6 @@ function makeTile(label, muted = false) {
 
 function ensureRemoteTile(peerId) {
   if (remoteTiles.has(peerId)) return remoteTiles.get(peerId);
-
   const t = makeTile(`Peer ${peerId}`, false);
   remoteTiles.set(peerId, t);
   return t;
@@ -121,6 +117,8 @@ function removeRemote(peerId) {
     peerConnections.delete(peerId);
   }
 
+  pendingIce.delete(peerId);
+
   const tile = remoteTiles.get(peerId);
   if (tile) {
     tile.tileEl.remove();
@@ -129,6 +127,41 @@ function removeRemote(peerId) {
 
   peers.delete(peerId);
   updateStatus();
+}
+
+async function getRtcConfig() {
+  // Server can optionally provide TURN creds. If none, it returns STUN-only.
+  try {
+    const res = await fetch("/ice", { cache: "no-store" });
+    if (!res.ok) throw new Error("ice config not available");
+    const data = await res.json();
+    if (data?.iceServers?.length) return { iceServers: data.iceServers };
+  } catch {
+    // fall through
+  }
+
+  // Safe default. Works on some networks, not all.
+  return {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:global.stun.twilio.com:3478" }
+    ]
+  };
+}
+
+let rtcConfig = null;
+
+function flushPendingIce(peerId) {
+  const pc = peerConnections.get(peerId);
+  if (!pc || !pc.remoteDescription) return;
+
+  const list = pendingIce.get(peerId);
+  if (!list || list.length === 0) return;
+
+  pendingIce.set(peerId, []);
+  for (const cand of list) {
+    pc.addIceCandidate(cand).catch(() => {});
+  }
 }
 
 function createPeerConnection(peerId) {
@@ -145,18 +178,12 @@ function createPeerConnection(peerId) {
     const tile = ensureRemoteTile(peerId);
     tile.videoEl.srcObject = ev.streams[0];
 
-    // Try autoplay
     const ok = await safePlay(tile.videoEl);
-
-    // If autoplay fails, show button. If autoplay works but audio is blocked,
-    // the button still helps.
     if (!ok) {
-      // muted autoplay often works even when audio autoplay is blocked
       tile.videoEl.muted = true;
       await safePlay(tile.videoEl);
       showEnableAudio(true);
     } else {
-      // If we haven't unlocked audio yet, keep remote muted to avoid errors.
       if (!audioUnlocked) {
         tile.videoEl.muted = true;
         showEnableAudio(true);
@@ -164,15 +191,7 @@ function createPeerConnection(peerId) {
         tile.videoEl.muted = false;
       }
     }
-
-    pc.oniceconnectionstatechange = () => {
-      const state = pc.iceConnectionState;
-      const tile = ensureRemoteTile(peerId);
-      tile.labelEl.textContent = `Peer ${peerId} (${state})`;
-    };
-
   };
-
 
   pc.onicecandidate = (ev) => {
     if (ev.candidate) {
@@ -184,6 +203,18 @@ function createPeerConnection(peerId) {
     }
   };
 
+  pc.oniceconnectionstatechange = () => {
+    const state = pc.iceConnectionState;
+    const tile = ensureRemoteTile(peerId);
+    tile.labelEl.textContent = `Peer ${peerId} (${state})`;
+  };
+
+  pc.onconnectionstatechange = () => {
+    // For debugging why it fails on Render / real networks
+    // states: new -> connecting -> connected, or failed/disconnected
+    // console.log("pc connectionState", peerId, pc.connectionState);
+  };
+
   peerConnections.set(peerId, pc);
   return pc;
 }
@@ -191,7 +222,6 @@ function createPeerConnection(peerId) {
 async function sendOffer(peerId) {
   const pc = createPeerConnection(peerId);
 
-  // IMPORTANT: only offer if we're stable (avoids weird state edges)
   if (pc.signalingState !== "stable") return;
 
   const offer = await pc.createOffer();
@@ -207,9 +237,8 @@ async function sendOffer(peerId) {
 async function handleOffer(from, offer) {
   const pc = createPeerConnection(from);
 
-  // If we somehow already have a local offer, ignore/rollback strategy could be added.
-  // For now we assume glare is prevented by our offer rules.
   await pc.setRemoteDescription(offer);
+  flushPendingIce(from);
 
   const answer = await pc.createAnswer();
   await pc.setLocalDescription(answer);
@@ -224,21 +253,27 @@ async function handleOffer(from, offer) {
 async function handleAnswer(from, answer) {
   const pc = createPeerConnection(from);
 
-  // Only set remote answer if we are in the correct state
-  if (pc.signalingState !== "have-local-offer") {
-    // This prevents: "Called in wrong state: stable"
-    return;
-  }
+  if (pc.signalingState !== "have-local-offer") return;
+
   await pc.setRemoteDescription(answer);
+  flushPendingIce(from);
 }
 
 async function handleIce(from, candidate) {
   const pc = createPeerConnection(from);
+
+  // Buffer early candidates until we have a remoteDescription
+  if (!pc.remoteDescription) {
+    const arr = pendingIce.get(from) || [];
+    arr.push(candidate);
+    pendingIce.set(from, arr);
+    return;
+  }
+
   try { await pc.addIceCandidate(candidate); } catch {}
 }
 
 function broadcastMediaState() {
-  // Send mute/video state to every peer via the signaling relay
   for (const peerId of peers) {
     ws.send(JSON.stringify({
       type: "signal",
@@ -257,8 +292,6 @@ function hookControls(localTile) {
     micMuted = !micMuted;
     localStream.getAudioTracks().forEach(t => (t.enabled = !micMuted));
     muteBtn.textContent = micMuted ? "Unmute mic" : "Mute mic";
-
-    // local badge + broadcast
     localTile.setMuted(micMuted);
     broadcastMediaState();
   });
@@ -267,7 +300,6 @@ function hookControls(localTile) {
     videoOff = !videoOff;
     localStream.getVideoTracks().forEach(t => (t.enabled = !videoOff));
     videoBtn.textContent = videoOff ? "Enable video" : "Disable video";
-
     broadcastMediaState();
   });
 
@@ -282,6 +314,7 @@ function cleanup() {
     try { pc.close(); } catch {}
   }
   peerConnections.clear();
+  pendingIce.clear();
 
   for (const [, t] of remoteTiles) {
     try { t.tileEl.remove(); } catch {}
@@ -308,7 +341,9 @@ async function main() {
   setStatus("Requesting camera/mic…");
   await startLocalMedia();
 
-  // local tile appears immediately
+  // Fetch ICE config
+  rtcConfig = await getRtcConfig();
+
   const localTile = makeTile("You", true);
   localTile.videoEl.srcObject = localStream;
   localTile.setMuted(false);
@@ -339,34 +374,30 @@ async function main() {
     if (msg.type === "room-joined") {
       const members = msg.members || [];
 
-      // roster = peers already in room
       peers.clear();
       members.forEach(id => peers.add(String(id)));
       updateStatus();
 
-      // NEW JOINER sends offers to existing members (ONLY THIS PATH sends offers)
+      // New joiner sends offers to existing members
       for (const peerId of members) {
         ensureRemoteTile(peerId);
         createPeerConnection(peerId);
         await sendOffer(peerId);
       }
 
-      // Share our current media state to everyone we know now
       broadcastMediaState();
       return;
     }
 
     if (msg.type === "peer-joined") {
       const peerId = String(msg.peerId);
-
       peers.add(peerId);
       updateStatus();
 
       ensureRemoteTile(peerId);
       createPeerConnection(peerId);
 
-      // Do NOT sendOffer here.
-      // Existing peers wait; the new peer (room-joined) will offer to us.
+      // Existing peers wait: the new peer will offer
       return;
     }
 
