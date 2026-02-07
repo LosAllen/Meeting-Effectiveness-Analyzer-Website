@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meeting Survey</title>
+    <link rel="stylesheet" href="./styles/survey.css" />
+  </head>
+  <body>
+    <header class="top">
+      <strong>Meeting Survey</strong>
+      <span class="pill">Code: <span id="codeLabel"></span></span>
+    </header>
+
+    <main class="card">
+      <p class="muted">
+        Thanks for joining. This short survey helps us measure meeting effectiveness.
+      </p>
+
+      <form id="surveyForm">
+        <div class="field">
+          <label for="overall">Overall meeting effectiveness (1–5)</label>
+          <select id="overall" name="overall" required>
+            <option value="" selected disabled>Select…</option>
+            <option value="1">1 - Very ineffective</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5 - Very effective</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="clarity">Goals were clear (1–5)</label>
+          <select id="clarity" name="clarity" required>
+            <option value="" selected disabled>Select…</option>
+            <option value="1">1 - Strongly disagree</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5 - Strongly agree</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="participation">Participation level (1–5)</label>
+          <select id="participation" name="participation" required>
+            <option value="" selected disabled>Select…</option>
+            <option value="1">1 - Very low</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5 - Very high</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="improve">What could be improved?</label>
+          <textarea id="improve" name="improve" rows="4" placeholder="Optional"></textarea>
+        </div>
+
+        <div class="field">
+          <label for="worked">What worked well?</label>
+          <textarea id="worked" name="worked" rows="4" placeholder="Optional"></textarea>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="primary" id="submitBtn">Submit survey</button>
+          <button type="button" id="skipBtn">Skip</button>
+        </div>
+
+        <p class="status" id="status"></p>
+      </form>
+    </main>
+
+    <script src="./survey.js"></script>
+  </body>
+</html>

@@ -3,38 +3,80 @@ import http from "http";
 import path from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
+import { MongoClient } from "mongodb";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const publicDir = path.join(__dirname, "..", "public");
-app.use(express.static(publicDir));
 
-/**
- * Optional ICE config endpoint.
- * If you set TURN_* env vars on Render, clients will use TURN (reliable).
- * Otherwise it returns STUN-only (works on some networks).
- */
+app.use(express.static(publicDir));
+app.use(express.json({ limit: "256kb" }));
+
 app.get("/ice", (req, res) => {
   const iceServers = [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:global.stun.twilio.com:3478" }
   ];
 
-  const turnUrl = process.env.TURN_URL;
-  const turnUsername = process.env.TURN_USERNAME;
-  const turnCredential = process.env.TURN_CREDENTIAL;
+  const { TURN_URL, TURN_USERNAME, TURN_CREDENTIAL } = process.env;
 
-  if (turnUrl && turnUsername && turnCredential) {
+  if (TURN_URL && TURN_USERNAME && TURN_CREDENTIAL) {
     iceServers.push({
-      urls: turnUrl,
-      username: turnUsername,
-      credential: turnCredential
+      urls: TURN_URL,
+      username: TURN_USERNAME,
+      credential: TURN_CREDENTIAL
     });
   }
 
   res.json({ iceServers });
+});
+
+function requireEnv(name) {
+  const val = process.env[name];
+  if (!val) throw new Error(`Missing required env var: ${name}`);
+  return val;
+}
+
+const MONGODB_URI = requireEnv("MONGODB_URI");
+const MONGODB_DB = process.env.MONGODB_DB || "meeting_analyzer";
+
+const mongoClient = new MongoClient(MONGODB_URI);
+
+let surveysCollection;
+
+async function connectMongo() {
+  await mongoClient.connect();
+  const db = mongoClient.db(MONGODB_DB);
+  surveysCollection = db.collection("surveys");
+  console.log("Connected to MongoDB");
+}
+
+app.post("/api/surveys", async (req, res) => {
+  try {
+    const { meetingCode, respondentId, role, answers } = req.body;
+
+    if (!meetingCode || !answers) {
+      return res.status(400).json({ error: "Missing survey data" });
+    }
+
+    const result = await surveysCollection.insertOne({
+      meetingCode: String(meetingCode).trim(),
+      respondentId: respondentId ? String(respondentId).trim() : null,
+      role: role ? String(role).trim() : null,
+      answers,
+      createdAt: new Date()
+    });
+
+    res.status(201).json({ success: true, id: result.insertedId });
+  } catch (err) {
+    console.error("Survey save error:", err);
+    res.status(500).json({ error: "Failed to save survey" });
+  }
 });
 
 const server = http.createServer(app);
@@ -56,7 +98,7 @@ wss.on("connection", (ws) => {
   ws.clientId = String(nextId++);
   ws.roomCode = null;
 
-  // tell client its id immediately
+  // Tell client its id immediately
   send(ws, { type: "hello", clientId: ws.clientId });
 
   ws.on("message", (raw) => {
@@ -112,7 +154,6 @@ wss.on("connection", (ws) => {
         from: ws.clientId,
         data: msg.data
       });
-      return;
     }
   });
 
@@ -135,4 +176,15 @@ wss.on("connection", (ws) => {
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+
+(async () => {
+  try {
+    await connectMongo();
+    server.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  } catch (err) {
+    console.error("Fatal startup error:", err);
+    process.exit(1);
+  }
+})();

@@ -42,7 +42,6 @@ async function safePlay(videoEl) {
   }
 }
 
-// One click unlocks audio playback for the whole window
 enableAudioBtn?.addEventListener("click", async () => {
   audioUnlocked = true;
   showEnableAudio(false);
@@ -56,7 +55,7 @@ enableAudioBtn?.addEventListener("click", async () => {
 
 function wsUrl() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  return `${proto}//${location.host}`;
+  return `${proto}//localhost:5000`;
 }
 
 async function startLocalMedia() {
@@ -140,7 +139,6 @@ async function getRtcConfig() {
     // fall through
   }
 
-  // Safe default. Works on some networks, not all.
   return {
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
@@ -327,6 +325,31 @@ function cleanup() {
 }
 
 function cleanupAndClose() {
+  // Only prompt joiners for a survey when they explicitly leave via the button.
+  if (role === "join") {
+    const takeSurvey = window.confirm(
+      "Would you like to take a short meeting survey?
+
+Select OK to take it, or Cancel to skip."
+    );
+
+    cleanup();
+
+    if (takeSurvey) {
+      const qs = new URLSearchParams({
+        code,
+        role,
+        clientId: clientId || ""
+      });
+      location.href = `/survey.html?${qs.toString()}`;
+      return;
+    }
+
+    window.close();
+    setTimeout(() => (location.href = "/"), 200);
+    return;
+  }
+
   cleanup();
   window.close();
   setTimeout(() => (location.href = "/"), 200);
