@@ -1,0 +1,148 @@
+.dashHeader {
+  max-width: 1100px;
+  margin: 28px auto 0;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dashTitle {
+  margin: 0;
+}
+
+.dashActions .btn {
+  display: inline-block;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid #e5e5e5;
+  text-decoration: none;
+  background: white;
+  cursor: pointer;
+}
+
+.dashGrid {
+  max-width: 1100px;
+  margin: 14px auto 40px;
+  padding: 0 16px;
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 16px;
+}
+
+.rowBetween {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.btn {
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid #e5e5e5;
+  background: white;
+  cursor: pointer;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+}
+
+.listRow {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #eee;
+  border-radius: 14px;
+  padding: 12px;
+  background: white;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.listRow.active {
+  outline: 2px solid #000;
+}
+
+.rowTitle {
+  font-weight: 700;
+}
+
+.small {
+  font-size: 12px;
+}
+
+.detail {
+  margin-top: 10px;
+}
+
+.kv {
+  display: grid;
+  gap: 6px;
+}
+
+.kv > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.k {
+  color: #666;
+}
+
+.v {
+  font-weight: 600;
+}
+
+.score {
+  margin-top: 14px;
+  border: 1px solid #eee;
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.scoreNum {
+  font-size: 36px;
+  font-weight: 800;
+}
+
+.twoCol {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 14px;
+  border: 1px solid #e5e5e5;
+  padding: 10px;
+  font-family: inherit;
+}
+
+.analysisCard {
+  margin-top: 10px;
+  border: 1px solid #eee;
+  border-radius: 16px;
+  padding: 12px;
+}
+
+@media (max-width: 900px) {
+  .dashGrid {
+    grid-template-columns: 1fr;
+  }
+  .twoCol {
+    grid-template-columns: 1fr;
+  }
+}

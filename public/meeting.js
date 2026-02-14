@@ -55,7 +55,8 @@ enableAudioBtn?.addEventListener("click", async () => {
 
 function wsUrl() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  return `${proto}//localhost:5000`;
+  // Use the same host/port as the page (works locally + on Render)
+  return `${proto}//${location.host}`;
 }
 
 async function startLocalMedia() {
@@ -285,6 +286,17 @@ function hookControls(localTile) {
   const muteBtn = document.getElementById("muteBtn");
   const videoBtn = document.getElementById("videoBtn");
   const leaveBtn = document.getElementById("leaveBtn");
+  const endBtn = document.getElementById("endBtn");
+
+  if (role === "host" && endBtn) {
+    endBtn.style.display = "inline-block";
+    endBtn.addEventListener("click", () => {
+      if (!ws || ws.readyState !== 1) return;
+      const ok = window.confirm("End the meeting for everyone?");
+      if (!ok) return;
+      ws.send(JSON.stringify({ type: "end-meeting" }));
+    });
+  }
 
   muteBtn.addEventListener("click", () => {
     micMuted = !micMuted;
@@ -325,34 +337,28 @@ function cleanup() {
 }
 
 function cleanupAndClose() {
-  // Only prompt joiners for a survey when they explicitly leave via the button.
+  cleanup();
+
+  // Participants get a survey when they leave.
   if (role === "join") {
-    const takeSurvey = window.confirm(
-      "Would you like to take a short meeting survey?
-
-Select OK to take it, or Cancel to skip."
-    );
-
-    cleanup();
-
-    if (takeSurvey) {
-      const qs = new URLSearchParams({
-        code,
-        role,
-        clientId: clientId || ""
-      });
-      location.href = `/survey.html?${qs.toString()}`;
-      return;
-    }
-
-    window.close();
-    setTimeout(() => (location.href = "/"), 200);
+    const qs = new URLSearchParams({ code, role, clientId: clientId || "" });
+    location.href = `/survey.html?${qs.toString()}`;
     return;
   }
 
-  cleanup();
+  // Host leaving returns home.
   window.close();
   setTimeout(() => (location.href = "/"), 200);
+}
+
+function goToSurvey() {
+  const qs = new URLSearchParams({ code, role: "join", clientId: clientId || "" });
+  location.href = `/survey.html?${qs.toString()}`;
+}
+
+function goToDashboard(focusCode) {
+  const qs = new URLSearchParams({ code: focusCode || code });
+  location.href = `/dashboard.html?${qs.toString()}`;
 }
 
 async function main() {
@@ -377,7 +383,7 @@ async function main() {
   ws = new WebSocket(wsUrl());
 
   ws.addEventListener("open", () => {
-    ws.send(JSON.stringify({ type: "join-room", code }));
+    ws.send(JSON.stringify({ type: "join-room", code, role }));
     setStatus("Joined room. Syncing peers…");
   });
 
@@ -397,6 +403,15 @@ async function main() {
     if (msg.type === "room-joined") {
       const members = msg.members || [];
 
+      // Host creates/updates meeting metadata in DB.
+      if (role === "host") {
+        fetch("/api/meetings/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code, hostId: clientId })
+        }).catch(() => {});
+      }
+
       peers.clear();
       members.forEach(id => peers.add(String(id)));
       updateStatus();
@@ -409,6 +424,23 @@ async function main() {
       }
 
       broadcastMediaState();
+      return;
+    }
+
+    if (msg.type === "meeting-ended") {
+      cleanup();
+      if (role === "host") {
+        // host sees results
+        goToDashboard(code);
+      } else {
+        // participants take a survey
+        goToSurvey();
+      }
+      return;
+    }
+
+    if (msg.type === "not-host") {
+      alert("Only the host can end the meeting.");
       return;
     }
 

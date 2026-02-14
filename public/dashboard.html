@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Host Dashboard</title>
+    <link rel="stylesheet" href="./styles/index.css" />
+    <link rel="stylesheet" href="./styles/dashboard.css" />
+  </head>
+  <body>
+    <header class="dashHeader">
+      <div>
+        <h1 class="dashTitle">Host Dashboard</h1>
+        <p class="muted">View past meetings, survey results, and transcript analysis.</p>
+      </div>
+      <div class="dashActions">
+        <a class="btn" href="/">Home</a>
+      </div>
+    </header>
+
+    <main class="dashGrid">
+      <section class="card">
+        <div class="rowBetween">
+          <strong>Meetings</strong>
+          <button id="refreshBtn" class="btn">Refresh</button>
+        </div>
+        <div id="meetingsList" class="list"></div>
+      </section>
+
+      <section class="card">
+        <strong>Selected meeting</strong>
+        <div id="detail" class="detail"></div>
+
+        <hr />
+
+        <strong>Transcript analysis</strong>
+        <p class="muted">Paste a transcript and click Analyze to generate a summary + suggestions (prototype).</p>
+        <textarea id="transcript" rows="8" placeholder="Paste transcript here..."></textarea>
+        <div class="row" style="margin-top: 10px; gap: 10px;">
+          <button id="analyzeBtn" class="primary">Analyze transcript</button>
+          <span id="analyzeStatus" class="muted"></span>
+        </div>
+        <div id="analysis" class="analysis"></div>
+      </section>
+    </main>
+
+    <script src="./dashboard.js"></script>
+  </body>
+</html>
