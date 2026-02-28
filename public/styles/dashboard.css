@@ -16,9 +16,9 @@
   display: inline-block;
   padding: 10px 14px;
   border-radius: 12px;
-  border: 1px solid #e5e5e5;
+  border: 1px solid rgba(255,255,255,.14);
   text-decoration: none;
-  background: white;
+  background: rgba(255,255,255,.06);
   cursor: pointer;
 }
 
@@ -42,8 +42,8 @@
 .btn {
   padding: 8px 12px;
   border-radius: 12px;
-  border: 1px solid #e5e5e5;
-  background: white;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.06);
   cursor: pointer;
 }
 
@@ -55,10 +55,10 @@
 .listRow {
   width: 100%;
   text-align: left;
-  border: 1px solid #eee;
+  border: 1px solid rgba(255,255,255,.10);
   border-radius: 14px;
   padding: 12px;
-  background: white;
+  background: rgba(255,255,255,.04);
   display: flex;
   justify-content: space-between;
   gap: 10px;
@@ -66,7 +66,7 @@
 }
 
 .listRow.active {
-  outline: 2px solid #000;
+  outline: 2px solid var(--primary);
 }
 
 .rowTitle {
@@ -93,7 +93,7 @@
 }
 
 .k {
-  color: #666;
+  color: var(--muted);
 }
 
 .v {
@@ -102,7 +102,7 @@
 
 .score {
   margin-top: 14px;
-  border: 1px solid #eee;
+  border: 1px solid rgba(255,255,255,.10);
   border-radius: 16px;
   padding: 14px;
   display: flex;
@@ -126,14 +126,16 @@ textarea {
   width: 100%;
   box-sizing: border-box;
   border-radius: 14px;
-  border: 1px solid #e5e5e5;
-  padding: 10px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
+  color: var(--text);
+  padding: 10px 12px;
   font-family: inherit;
 }
 
 .analysisCard {
   margin-top: 10px;
-  border: 1px solid #eee;
+  border: 1px solid rgba(255,255,255,.10);
   border-radius: 16px;
   padding: 12px;
 }

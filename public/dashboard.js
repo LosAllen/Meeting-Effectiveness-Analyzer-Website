@@ -1,3 +1,6 @@
+import { apiFetch, clearSession, fetchMe, getUser, login } from "./auth.js";
+import mongoose from "mongoose";
+
 const params = new URLSearchParams(location.search);
 const focusCode = (params.get("code") || "").trim().toUpperCase();
 
@@ -8,7 +11,27 @@ const analyzeBtn = document.getElementById("analyzeBtn");
 const analyzeStatus = document.getElementById("analyzeStatus");
 const analysisBox = document.getElementById("analysis");
 
+const loginGate = document.getElementById("loginGate");
+const dashMain = document.getElementById("dashMain");
+const usernameInput = document.getElementById("usernameInput");
+const loginBtn = document.getElementById("loginBtn");
+const loginStatus = document.getElementById("loginStatus");
+const logoutBtn = document.getElementById("logoutBtn");
+
+let currentUser = getUser();
+
 let selectedCode = focusCode || null;
+
+export async function connectDb() {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) throw new Error("Missing MONGODB_URI");
+
+  await mongoose.connect(uri, {
+    
+  });
+
+  console.log("✅ Connected to MongoDB");
+}
 
 function fmtDate(d) {
   if (!d) return "—";
@@ -56,7 +79,7 @@ function renderMeetings(items) {
     `;
     row.addEventListener("click", () => {
       selectedCode = code;
-      history.replaceState(null, "", `/dashboard.html?code=${encodeURIComponent(code)}`);
+      history.replaceState(null, "", `/?code=${encodeURIComponent(code)}`);
       loadMeeting(code);
       // refresh highlight
       document.querySelectorAll(".listRow").forEach((el) => el.classList.remove("active"));
@@ -136,7 +159,8 @@ function renderAnalysis(a) {
 }
 
 async function loadMeetings() {
-  const res = await fetch("/api/meetings", { cache: "no-store" });
+  const res = await apiFetch("/api/meetings", { cache: "no-store" });
+  if (res.status === 401) throw new Error("unauthorized");
   const data = await res.json();
   const items = data.meetings || [];
   renderMeetings(items);
@@ -149,7 +173,7 @@ async function loadMeetings() {
 
 async function loadMeeting(code) {
   setDetailLoading();
-  const res = await fetch(`/api/meetings/${encodeURIComponent(code)}`, { cache: "no-store" });
+  const res = await apiFetch(`/api/meetings/${encodeURIComponent(code)}`, { cache: "no-store" });
   if (!res.ok) {
     detail.innerHTML = `<p class="muted">Could not load meeting.</p>`;
     return;
@@ -158,6 +182,49 @@ async function loadMeeting(code) {
   renderMeetingDetail(data);
 }
 
+document.getElementById("refreshBtn").addEventListener("click", loadMeetings);
+
+async function boot() {
+  // Validate stored session (if any)
+  currentUser = await fetchMe();
+
+  const isAuthed = !!currentUser;
+  loginGate.style.display = isAuthed ? "none" : "grid";
+  dashMain.style.display = isAuthed ? "grid" : "none";
+  logoutBtn.style.display = isAuthed ? "inline-block" : "none";
+
+  if (isAuthed) {
+    await loadMeetings();
+  }
+}
+
+loginBtn?.addEventListener("click", async () => {
+  const username = (usernameInput?.value || "").trim();
+  if (!username) {
+    loginStatus.textContent = "Enter a username.";
+    return;
+  }
+
+  loginBtn.disabled = true;
+  loginStatus.textContent = "Signing in…";
+  try {
+    currentUser = await login(username);
+    loginStatus.textContent = "";
+    await boot();
+  } catch (e) {
+    console.error(e);
+    loginStatus.textContent = "Sign in failed.";
+  } finally {
+    loginBtn.disabled = false;
+  }
+});
+
+logoutBtn?.addEventListener("click", () => {
+  clearSession();
+  location.href = "/";
+});
+
+// Use apiFetch for transcript analyze (needs auth)
 analyzeBtn.addEventListener("click", async () => {
   if (!selectedCode) return;
   const transcript = transcriptEl.value || "";
@@ -169,7 +236,7 @@ analyzeBtn.addEventListener("click", async () => {
   analyzeBtn.disabled = true;
   analyzeStatus.textContent = "Analyzing…";
   try {
-    const res = await fetch(`/api/meetings/${encodeURIComponent(selectedCode)}/transcript`, {
+    const res = await apiFetch(`/api/meetings/${encodeURIComponent(selectedCode)}/transcript`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ transcript })
@@ -181,7 +248,6 @@ analyzeBtn.addEventListener("click", async () => {
     }
 
     analyzeStatus.textContent = "Saved.";
-    // reload meeting to show stored analysis
     await loadMeeting(selectedCode);
   } catch (err) {
     console.error(err);
@@ -191,9 +257,10 @@ analyzeBtn.addEventListener("click", async () => {
   }
 });
 
-document.getElementById("refreshBtn").addEventListener("click", loadMeetings);
-
-loadMeetings().catch((err) => {
+boot().catch((err) => {
   console.error(err);
+  // If auth failed, show login.
+  loginGate.style.display = "grid";
+  dashMain.style.display = "none";
   meetingsList.innerHTML = `<p class="muted">Failed to load meetings.</p>`;
 });

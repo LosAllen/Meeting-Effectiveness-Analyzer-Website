@@ -55,7 +55,6 @@ enableAudioBtn?.addEventListener("click", async () => {
 
 function wsUrl() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  // Use the same host/port as the page (works locally + on Render)
   return `${proto}//${location.host}`;
 }
 
@@ -167,8 +166,6 @@ function createPeerConnection(peerId) {
   if (peerConnections.has(peerId)) return peerConnections.get(peerId);
 
   const pc = new RTCPeerConnection(rtcConfig);
-
-  // add local tracks
   for (const track of localStream.getTracks()) {
     pc.addTrack(track, localStream);
   }
@@ -261,7 +258,6 @@ async function handleAnswer(from, answer) {
 async function handleIce(from, candidate) {
   const pc = createPeerConnection(from);
 
-  // Buffer early candidates until we have a remoteDescription
   if (!pc.remoteDescription) {
     const arr = pendingIce.get(from) || [];
     arr.push(candidate);
@@ -358,7 +354,7 @@ function goToSurvey() {
 
 function goToDashboard(focusCode) {
   const qs = new URLSearchParams({ code: focusCode || code });
-  location.href = `/dashboard.html?${qs.toString()}`;
+  location.href = `/?${qs.toString()}`;
 }
 
 async function main() {
@@ -370,7 +366,6 @@ async function main() {
   setStatus("Requesting camera/mic…");
   await startLocalMedia();
 
-  // Fetch ICE config
   rtcConfig = await getRtcConfig();
 
   const localTile = makeTile("You", true);
@@ -403,12 +398,15 @@ async function main() {
     if (msg.type === "room-joined") {
       const members = msg.members || [];
 
-      // Host creates/updates meeting metadata in DB.
       if (role === "host") {
+        const token = localStorage.getItem("mea_token") || "";
         fetch("/api/meetings/start", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code, hostId: clientId })
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ code })
         }).catch(() => {});
       }
 
@@ -416,7 +414,6 @@ async function main() {
       members.forEach(id => peers.add(String(id)));
       updateStatus();
 
-      // New joiner sends offers to existing members
       for (const peerId of members) {
         ensureRemoteTile(peerId);
         createPeerConnection(peerId);

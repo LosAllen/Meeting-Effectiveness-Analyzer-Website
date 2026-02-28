@@ -25,6 +25,12 @@ function openMeetingPopup(code, role) {
 }
 
 document.getElementById("hostBtn").addEventListener("click", () => {
+  const token = localStorage.getItem("mea_token") || "";
+  if (!token) {
+    alert("Please sign in on the dashboard before hosting so meetings are saved under your account.");
+    location.href = "/";
+    return;
+  }
   const code = randomCode(6);
   openMeetingPopup(code, "host");
 });

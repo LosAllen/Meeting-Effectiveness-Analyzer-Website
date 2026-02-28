@@ -14,11 +14,24 @@
         <p class="muted">View past meetings, survey results, and transcript analysis.</p>
       </div>
       <div class="dashActions">
-        <a class="btn" href="/">Home</a>
+        <a class="btn" href="/meeting">Meeting page</a>
+        <button id="logoutBtn" class="btn" type="button" style="display:none">Sign out</button>
       </div>
     </header>
 
-    <main class="dashGrid">
+    <main class="dashGrid" id="loginGate" style="display:none">
+      <section class="card" style="grid-column:1 / -1">
+        <strong>Sign in</strong>
+        <p class="muted">Please enter your username to sign in.</p>
+        <div class="row" style="margin-top: 10px; gap: 10px; align-items:center;">
+          <input id="usernameInput" placeholder="Username" autocomplete="username" />
+          <button id="loginBtn" class="primary" type="button">Sign in</button>
+          <span id="loginStatus" class="muted"></span>
+        </div>
+      </section>
+    </main>
+
+    <main class="dashGrid" id="dashMain">
       <section class="card">
         <div class="rowBetween">
           <strong>Meetings</strong>
@@ -44,6 +57,6 @@
       </section>
     </main>
 
-    <script src="./dashboard.js"></script>
+    <script type="module" src="./dashboard.js"></script>
   </body>
 </html>

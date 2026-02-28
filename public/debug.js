@@ -8,8 +8,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const respondentId = `debug-${Math.random().toString(16).slice(2)}`;
     const role = "join";
 
-    // If your survey page reads these params, this will populate context.
-    // If it doesn’t, it still safely opens the survey page.
     const url = `/survey.html?code=${encodeURIComponent(meetingCode)}&clientId=${encodeURIComponent(
       respondentId
     )}&role=${encodeURIComponent(role)}`;

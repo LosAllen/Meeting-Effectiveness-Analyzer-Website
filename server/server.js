@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
 import { MongoClient } from "mongodb";
 import dotenv from "dotenv";
+import crypto from "crypto";
 
 dotenv.config();
 
@@ -14,8 +15,16 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const publicDir = path.join(__dirname, "..", "public");
 
-app.use(express.static(publicDir));
+app.get("/", (req, res) => {
+  res.sendFile(path.join(publicDir, "dashboard.html"));
+});
+
+app.use(express.static(publicDir, { index: false }));
 app.use(express.json({ limit: "256kb" }));
+
+app.get("/meeting", (req, res) => {
+  res.sendFile(path.join(publicDir, "index.html"));
+});
 
 app.get("/ice", (req, res) => {
   const iceServers = [
@@ -50,6 +59,7 @@ const mongoClient = new MongoClient(MONGODB_URI);
 let surveysCollection;
 let meetingsCollection;
 let analysesCollection;
+let usersCollection;
 
 async function connectMongo() {
   await mongoClient.connect();
@@ -57,15 +67,98 @@ async function connectMongo() {
   surveysCollection = db.collection("surveys");
   meetingsCollection = db.collection("meetings");
   analysesCollection = db.collection("analyses");
+  usersCollection = db.collection("users");
   console.log("Connected to MongoDB");
 }
+
+function base64urlEncode(buf) {
+  return Buffer.from(buf)
+    .toString("base64")
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
+}
+
+function base64urlDecode(str) {
+  const pad = str.length % 4;
+  const padded = str + (pad ? "=".repeat(4 - pad) : "");
+  const b64 = padded.replaceAll("-", "+").replaceAll("_", "/");
+  return Buffer.from(b64, "base64");
+}
+
+function getAuthSecret() {
+  return process.env.AUTH_SECRET || "2572468245824576235";
+}
+
+function signToken(payload) {
+  const json = JSON.stringify(payload);
+  const p = base64urlEncode(Buffer.from(json));
+  const sig = crypto.createHmac("sha256", getAuthSecret()).update(p).digest();
+  return `${p}.${base64urlEncode(sig)}`;
+}
+
+function verifyToken(token) {
+  if (!token || typeof token !== "string") return null;
+  const [p, s] = token.split(".");
+  if (!p || !s) return null;
+
+  const expected = base64urlEncode(crypto.createHmac("sha256", getAuthSecret()).update(p).digest());
+  // constant-time compare
+  const a = Buffer.from(expected);
+  const b = Buffer.from(s);
+  if (a.length !== b.length) return null;
+  if (!crypto.timingSafeEqual(a, b)) return null;
+
+  try {
+    const payload = JSON.parse(base64urlDecode(p).toString("utf8"));
+    if (!payload?.uid) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function getBearerToken(req) {
+  const h = req.headers.authorization || "";
+  const m = String(h).match(/^Bearer\s+(.+)$/i);
+  return m ? m[1] : null;
+}
+
+function requireAuth(req, res, next) {
+  const token = getBearerToken(req);
+  const payload = verifyToken(token);
+  if (!payload) return res.status(401).json({ error: "Unauthorized" });
+  req.user = { id: String(payload.uid), username: String(payload.uname || "") };
+  next();
+}
+
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const username = String(req.body?.username || "").trim();
+    if (!username) return res.status(400).json({ error: "Missing username" });
+
+    const existing = await usersCollection.findOne({ username });
+    const userId = existing?._id
+      ? String(existing._id)
+      : String((await usersCollection.insertOne({ username, createdAt: now() })).insertedId);
+
+    const token = signToken({ uid: userId, uname: username, iat: Date.now() });
+    res.json({ token, user: { id: userId, username } });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ error: "Failed to login" });
+  }
+});
+
+app.get("/api/auth/me", requireAuth, async (req, res) => {
+  res.json({ user: req.user });
+});
 
 function now() {
   return new Date();
 }
 
 function computeEffectivenessScore(surveys) {
-  // score: average of 3 core 1-5 answers mapped to 0-100
   if (!surveys || surveys.length === 0) return null;
   let n = 0;
   let sum = 0;
@@ -85,7 +178,6 @@ function computeEffectivenessScore(surveys) {
 }
 
 function simpleAiAnalyze(transcript) {
-  // Lightweight "AI-like" analysis for the prototype.
   const text = String(transcript || "").trim();
   if (!text) {
     return {
@@ -135,11 +227,10 @@ app.post("/api/surveys", async (req, res) => {
   }
 });
 
-// Meeting lifecycle + dashboard APIs
-app.post("/api/meetings/start", async (req, res) => {
+app.post("/api/meetings/start", requireAuth, async (req, res) => {
   try {
     const code = String(req.body?.code || "").trim().toUpperCase();
-    const hostId = req.body?.hostId ? String(req.body.hostId).trim() : null;
+    const hostId = req.user.id;
     if (!code) return res.status(400).json({ error: "Missing code" });
 
     const existing = await meetingsCollection.findOne({ code });
@@ -204,10 +295,10 @@ app.post("/api/meetings/end", async (req, res) => {
   }
 });
 
-app.get("/api/meetings", async (req, res) => {
+app.get("/api/meetings", requireAuth, async (req, res) => {
   try {
     const items = await meetingsCollection
-      .find({}, { projection: { _id: 0 } })
+      .find({ hostId: req.user.id }, { projection: { _id: 0 } })
       .sort({ startedAt: -1 })
       .limit(100)
       .toArray();
@@ -218,12 +309,15 @@ app.get("/api/meetings", async (req, res) => {
   }
 });
 
-app.get("/api/meetings/:code", async (req, res) => {
+app.get("/api/meetings/:code", requireAuth, async (req, res) => {
   try {
     const code = String(req.params.code || "").trim().toUpperCase();
     if (!code) return res.status(400).json({ error: "Missing code" });
 
     const meeting = await meetingsCollection.findOne({ code }, { projection: { _id: 0 } });
+    if (!meeting) return res.status(404).json({ error: "Not found" });
+    if (String(meeting.hostId || "") !== req.user.id) return res.status(403).json({ error: "Forbidden" });
+
     const surveys = await surveysCollection.find({ meetingCode: code }).toArray();
     const analysis = await analysesCollection.findOne({ code }, { projection: { _id: 0 } });
 
@@ -244,12 +338,16 @@ app.get("/api/meetings/:code", async (req, res) => {
   }
 });
 
-app.post("/api/meetings/:code/transcript", async (req, res) => {
+app.post("/api/meetings/:code/transcript", requireAuth, async (req, res) => {
   try {
     const code = String(req.params.code || "").trim().toUpperCase();
     const transcript = String(req.body?.transcript || "");
     if (!code) return res.status(400).json({ error: "Missing code" });
     if (!transcript.trim()) return res.status(400).json({ error: "Missing transcript" });
+
+    const meeting = await meetingsCollection.findOne({ code }, { projection: { _id: 0 } });
+    if (!meeting) return res.status(404).json({ error: "Not found" });
+    if (String(meeting.hostId || "") !== req.user.id) return res.status(403).json({ error: "Forbidden" });
 
     const result = simpleAiAnalyze(transcript);
 
@@ -279,7 +377,6 @@ app.post("/api/meetings/:code/transcript", async (req, res) => {
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-// roomCode -> { clients: Map(clientId -> ws), hostId, startedAt, maxParticipants }
 const rooms = new Map();
 let nextId = 1;
 
@@ -303,7 +400,6 @@ wss.on("connection", (ws) => {
   ws.clientId = String(nextId++);
   ws.roomCode = null;
 
-  // Tell client its id immediately
   send(ws, { type: "hello", clientId: ws.clientId });
 
   ws.on("message", (raw) => {
@@ -323,23 +419,21 @@ wss.on("connection", (ws) => {
       ws.role = role;
       const room = getRoom(code);
 
-      // enforce max 10
       if (room.clients.size >= 10) {
         send(ws, { type: "room-full", max: 10 });
         return;
       }
 
-      // first host to join becomes room host
       if (role === "host" && !room.hostId) {
         room.hostId = ws.clientId;
         room.startedAt = room.startedAt || now();
-        // best-effort: create meeting record
         meetingsCollection?.updateOne(
           { code },
           {
             $setOnInsert: {
               code,
-              hostId: ws.clientId,
+              hostId: null,
+              hostClientId: ws.clientId,
               startedAt: room.startedAt,
               endedAt: null,
               durationSeconds: null,
@@ -360,13 +454,10 @@ wss.on("connection", (ws) => {
         { upsert: true }
       ).catch(() => {});
 
-      // roster = everyone else already in room
       const members = Array.from(room.clients.keys()).filter((id) => id !== ws.clientId);
 
-      // send roster to new client
       send(ws, { type: "room-joined", room: code, members, hostId: room.hostId });
 
-      // notify existing peers that someone joined
       for (const [id, peer] of room.clients) {
         if (id !== ws.clientId) send(peer, { type: "peer-joined", peerId: ws.clientId });
       }
@@ -379,7 +470,6 @@ wss.on("connection", (ws) => {
       const room = rooms.get(code);
       if (!room) return;
 
-      // Only the host can end
       if (!room.hostId || ws.clientId !== room.hostId) {
         send(ws, { type: "not-host" });
         return;
@@ -397,7 +487,6 @@ wss.on("connection", (ws) => {
         { upsert: true }
       ).catch(() => {});
 
-      // Notify everyone, then close sockets.
       for (const [, peer] of room.clients) {
         send(peer, { type: "meeting-ended", code });
         try { peer.close(); } catch {}
@@ -407,7 +496,6 @@ wss.on("connection", (ws) => {
       return;
     }
 
-    // relay signaling to a specific peer
     if (msg.type === "signal") {
       const code = ws.roomCode;
       if (!code) return;
@@ -436,7 +524,6 @@ wss.on("connection", (ws) => {
 
     room.clients.delete(ws.clientId);
 
-    // notify remaining peers
     for (const [, peer] of room.clients) {
       send(peer, { type: "peer-left", peerId: ws.clientId });
     }
