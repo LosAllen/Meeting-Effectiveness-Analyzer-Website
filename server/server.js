@@ -6,6 +6,7 @@ import { WebSocketServer } from "ws";
 import { MongoClient } from "mongodb";
 import dotenv from "dotenv";
 import crypto from "crypto";
+import { aiAnalyzeTranscript } from "./transcriptAnalyzer.js";
 
 dotenv.config();
 
@@ -349,7 +350,7 @@ app.post("/api/meetings/:code/transcript", requireAuth, async (req, res) => {
     if (!meeting) return res.status(404).json({ error: "Not found" });
     if (String(meeting.hostId || "") !== req.user.id) return res.status(403).json({ error: "Forbidden" });
 
-    const result = simpleAiAnalyze(transcript);
+    const result = await aiAnalyzeTranscript(transcript);
 
     await analysesCollection.updateOne(
       { code },

@@ -1,5 +1,4 @@
 import { apiFetch, clearSession, fetchMe, getUser, login } from "./auth.js";
-import mongoose from "mongoose";
 
 const params = new URLSearchParams(location.search);
 const focusCode = (params.get("code") || "").trim().toUpperCase();
@@ -21,17 +20,6 @@ const logoutBtn = document.getElementById("logoutBtn");
 let currentUser = getUser();
 
 let selectedCode = focusCode || null;
-
-export async function connectDb() {
-  const uri = process.env.MONGODB_URI;
-  if (!uri) throw new Error("Missing MONGODB_URI");
-
-  await mongoose.connect(uri, {
-    
-  });
-
-  console.log("✅ Connected to MongoDB");
-}
 
 function fmtDate(d) {
   if (!d) return "—";
@@ -146,14 +134,24 @@ function escapeHtml(str) {
 
 function renderAnalysis(a) {
   const summary = escapeHtml(a.summary || "");
-  const suggestions = Array.isArray(a.suggestions) ? a.suggestions : [];
+
+  let suggestionsHtml = `<p class="muted">—</p>`;
+
+  if (Array.isArray(a.suggestions) && a.suggestions.length) {
+    suggestionsHtml = `<ul>${a.suggestions.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>`;
+  }
+
+  else if (typeof a.suggestions === "string" && a.suggestions.trim()) {
+    suggestionsHtml = `<p>${escapeHtml(a.suggestions)}</p>`;
+  }
+
   analysisBox.innerHTML = `
     <div class="analysisCard">
       <div class="muted small">Model: ${escapeHtml(a.model || "")}</div>
       <p><strong>Summary</strong></p>
       <p>${summary || "—"}</p>
       <p><strong>Suggestions</strong></p>
-      ${suggestions.length ? `<ul>${suggestions.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>` : `<p class="muted">—</p>`}
+      ${suggestionsHtml}
     </div>
   `;
 }
