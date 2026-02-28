@@ -64,7 +64,7 @@ Meetings consume significant organizational time and resources, yet many teams l
 - WebRTC
 
 ### AI Integration
-- External AI API (TBD)
+- Gemini AI API
 
 ### Infrastructure
 - Cloud hosting
