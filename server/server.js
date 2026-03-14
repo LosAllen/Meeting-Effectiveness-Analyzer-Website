@@ -27,6 +27,10 @@ app.get("/meeting", (req, res) => {
   res.sendFile(path.join(publicDir, "index.html"));
 });
 
+app.get("/health", (_req, res) => {
+  res.json({ ok: true });
+});
+
 app.get("/ice", (req, res) => {
   const iceServers = [
     { urls: "stun:stun.l.google.com:19302" },
@@ -52,10 +56,8 @@ function requireEnv(name) {
   return val;
 }
 
-const MONGODB_URI = requireEnv("MONGODB_URI");
-const MONGODB_DB = process.env.MONGODB_DB || "meeting_analyzer";
-
-const mongoClient = new MongoClient(MONGODB_URI);
+let mongoClient;
+let MONGODB_DB;
 
 let surveysCollection;
 let meetingsCollection;
@@ -63,6 +65,10 @@ let analysesCollection;
 let usersCollection;
 
 async function connectMongo() {
+  const MONGODB_URI = requireEnv("MONGODB_URI");
+  MONGODB_DB = process.env.MONGODB_DB || "meeting_analyzer";
+
+  mongoClient = new MongoClient(MONGODB_URI);
   await mongoClient.connect();
   const db = mongoClient.db(MONGODB_DB);
   surveysCollection = db.collection("surveys");
@@ -133,18 +139,77 @@ function requireAuth(req, res, next) {
   next();
 }
 
+function normalizeUsername(username) {
+  return String(username || "").trim();
+}
+
+async function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const derived = await new Promise((resolve, reject) => {
+    crypto.scrypt(password, salt, 64, (err, key) => {
+      if (err) reject(err);
+      else resolve(key);
+    });
+  });
+  return `scrypt:${salt}:${Buffer.from(derived).toString("hex")}`;
+}
+
+async function verifyPassword(password, storedHash) {
+  if (!storedHash || typeof storedHash !== "string") return false;
+
+  const [scheme, salt, originalHex] = storedHash.split(":");
+  if (scheme !== "scrypt" || !salt || !originalHex) return false;
+
+  const derived = await new Promise((resolve, reject) => {
+    crypto.scrypt(password, salt, 64, (err, key) => {
+      if (err) reject(err);
+      else resolve(key);
+    });
+  });
+
+  const actual = Buffer.from(derived).toString("hex");
+  const a = Buffer.from(actual, "utf8");
+  const b = Buffer.from(originalHex, "utf8");
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
 app.post("/api/auth/login", async (req, res) => {
   try {
-    const username = String(req.body?.username || "").trim();
+    const username = normalizeUsername(req.body?.username);
+    const password = String(req.body?.password || "");
+
     if (!username) return res.status(400).json({ error: "Missing username" });
+    if (!password) return res.status(400).json({ error: "Missing password" });
 
     const existing = await usersCollection.findOne({ username });
-    const userId = existing?._id
-      ? String(existing._id)
-      : String((await usersCollection.insertOne({ username, createdAt: now() })).insertedId);
 
+    if (!existing) {
+      const passwordHash = await hashPassword(password);
+      const insertResult = await usersCollection.insertOne({
+        username,
+        passwordHash,
+        createdAt: now(),
+        updatedAt: now()
+      });
+
+      const userId = String(insertResult.insertedId);
+      const token = signToken({ uid: userId, uname: username, iat: Date.now() });
+      return res.status(201).json({ token, user: { id: userId, username }, created: true });
+    }
+
+    if (!existing.passwordHash) {
+      return res.status(409).json({ error: "This account exists without a password. Delete the user record or add a password hash before signing in." });
+    }
+
+    const ok = await verifyPassword(password, existing.passwordHash);
+    if (!ok) return res.status(401).json({ error: "Invalid username or password" });
+
+    await usersCollection.updateOne({ _id: existing._id }, { $set: { updatedAt: now() } });
+
+    const userId = String(existing._id);
     const token = signToken({ uid: userId, uname: username, iat: Date.now() });
-    res.json({ token, user: { id: userId, username } });
+    res.json({ token, user: { id: userId, username }, created: false });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ error: "Failed to login" });

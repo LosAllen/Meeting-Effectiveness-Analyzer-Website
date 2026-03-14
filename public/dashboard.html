@@ -22,9 +22,10 @@
     <main class="dashGrid" id="loginGate" style="display:none">
       <section class="card" style="grid-column:1 / -1">
         <strong>Sign in</strong>
-        <p class="muted">Please enter your username to sign in.</p>
-        <div class="row" style="margin-top: 10px; gap: 10px; align-items:center;">
+        <p class="muted">Enter your username and password. New usernames create a new account automatically.</p>
+        <div class="row" style="margin-top: 10px; gap: 10px; align-items:center; flex-wrap: wrap;">
           <input id="usernameInput" placeholder="Username" autocomplete="username" />
+          <input id="passwordInput" type="password" placeholder="Password" autocomplete="current-password" />
           <button id="loginBtn" class="primary" type="button">Sign in</button>
           <span id="loginStatus" class="muted"></span>
         </div>

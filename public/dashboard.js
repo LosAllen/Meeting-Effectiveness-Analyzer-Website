@@ -14,6 +14,7 @@ const loginGate = document.getElementById("loginGate");
 const dashMain = document.getElementById("dashMain");
 const usernameInput = document.getElementById("usernameInput");
 const loginBtn = document.getElementById("loginBtn");
+const passwordInput = document.getElementById("passwordInput");
 const loginStatus = document.getElementById("loginStatus");
 const logoutBtn = document.getElementById("logoutBtn");
 
@@ -198,15 +199,20 @@ async function boot() {
 
 loginBtn?.addEventListener("click", async () => {
   const username = (usernameInput?.value || "").trim();
+  const password = passwordInput?.value || "";
   if (!username) {
     loginStatus.textContent = "Enter a username.";
+    return;
+  }
+  if (!password) {
+    loginStatus.textContent = "Enter a password.";
     return;
   }
 
   loginBtn.disabled = true;
   loginStatus.textContent = "Signing in…";
   try {
-    currentUser = await login(username);
+    currentUser = await login(username, password);
     loginStatus.textContent = "";
     await boot();
   } catch (e) {
@@ -220,6 +226,12 @@ loginBtn?.addEventListener("click", async () => {
 logoutBtn?.addEventListener("click", () => {
   clearSession();
   location.href = "/";
+});
+
+[usernameInput, passwordInput].forEach((input) => {
+  input?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") loginBtn?.click();
+  });
 });
 
 // Use apiFetch for transcript analyze (needs auth)
