@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create Account</title>
+    <link rel="stylesheet" href="./styles/index.css" />
+  </head>
+  <body>
+    <div class="card" style="margin-top: 64px; max-width: 520px;">
+      <h1>Create account</h1>
+      <p class="muted">Create a separate account for your meeting dashboard.</p>
+
+      <div class="row" style="flex-direction: column; align-items: stretch; gap: 14px;">
+        <input id="usernameInput" placeholder="Username" autocomplete="username" style="width: 100%;" />
+        <input id="passwordInput" type="password" placeholder="Password" autocomplete="new-password" style="width: 100%;" />
+        <input id="confirmPasswordInput" type="password" placeholder="Confirm password" autocomplete="new-password" style="width: 100%;" />
+        <button id="registerBtn" class="primary" type="button">Create account</button>
+      </div>
+
+      <p id="registerStatus" class="muted" style="min-height: 20px; margin-top: 14px;"></p>
+
+      <div class="row" style="margin-top: 16px; justify-content: space-between;">
+        <a href="/sign-in">Back to sign in</a>
+        <a href="/meeting">Meeting page</a>
+      </div>
+    </div>
+
+    <script type="module" src="./create-account.js"></script>
+  </body>
+</html>

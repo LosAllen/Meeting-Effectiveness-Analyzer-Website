@@ -24,21 +24,38 @@ export function clearSession() {
   localStorage.removeItem(USER_KEY);
 }
 
-export async function login(username, password) {
-  const res = await fetch("/api/auth/login", {
+async function readErrorMessage(res, fallback) {
+  try {
+    const data = await res.json();
+    return data?.error || fallback;
+  } catch {
+    const msg = await res.text();
+    return msg || fallback;
+  }
+}
+
+async function submitAuth(url, username, password, fallback) {
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password })
   });
 
   if (!res.ok) {
-    const msg = await res.text();
-    throw new Error(msg || "Login failed");
+    throw new Error(await readErrorMessage(res, fallback));
   }
 
   const data = await res.json();
   setSession(data.token, data.user);
   return data.user;
+}
+
+export async function login(username, password) {
+  return submitAuth("/api/auth/login", username, password, "Login failed");
+}
+
+export async function register(username, password) {
+  return submitAuth("/api/auth/register", username, password, "Account creation failed");
 }
 
 export async function fetchMe() {

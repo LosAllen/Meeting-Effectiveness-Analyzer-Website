@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign In</title>
+    <link rel="stylesheet" href="./styles/index.css" />
+  </head>
+  <body>
+    <div class="card" style="margin-top: 64px; max-width: 520px;">
+      <h1>Sign in</h1>
+      <p class="muted">Sign in to open your meeting dashboard.</p>
+
+      <div class="row" style="flex-direction: column; align-items: stretch; gap: 14px;">
+        <input id="usernameInput" placeholder="Username" autocomplete="username" style="width: 100%;" />
+        <input id="passwordInput" type="password" placeholder="Password" autocomplete="current-password" style="width: 100%;" />
+        <button id="loginBtn" class="primary" type="button">Sign in</button>
+      </div>
+
+      <p id="loginStatus" class="muted" style="min-height: 20px; margin-top: 14px;"></p>
+
+      <div class="row" style="margin-top: 16px; justify-content: space-between;">
+        <a href="/create-account">Create account</a>
+        <a href="/meeting">Meeting page</a>
+      </div>
+    </div>
+
+    <script type="module" src="./sign-in.js"></script>
+  </body>
+</html>

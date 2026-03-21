@@ -20,6 +20,14 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(publicDir, "dashboard.html"));
 });
 
+app.get("/sign-in", (req, res) => {
+  res.sendFile(path.join(publicDir, "sign-in.html"));
+});
+
+app.get("/create-account", (req, res) => {
+  res.sendFile(path.join(publicDir, "create-account.html"));
+});
+
 app.use(express.static(publicDir, { index: false }));
 app.use(express.json({ limit: "256kb" }));
 
@@ -174,6 +182,37 @@ async function verifyPassword(password, storedHash) {
   return crypto.timingSafeEqual(a, b);
 }
 
+app.post("/api/auth/register", async (req, res) => {
+  try {
+    const username = normalizeUsername(req.body?.username);
+    const password = String(req.body?.password || "");
+
+    if (!username) return res.status(400).json({ error: "Missing username" });
+    if (!password) return res.status(400).json({ error: "Missing password" });
+    if (password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
+
+    const existing = await usersCollection.findOne({ username });
+    if (existing) {
+      return res.status(409).json({ error: "That username is already in use" });
+    }
+
+    const passwordHash = await hashPassword(password);
+    const insertResult = await usersCollection.insertOne({
+      username,
+      passwordHash,
+      createdAt: now(),
+      updatedAt: now()
+    });
+
+    const userId = String(insertResult.insertedId);
+    const token = signToken({ uid: userId, uname: username, iat: Date.now() });
+    return res.status(201).json({ token, user: { id: userId, username }, created: true });
+  } catch (err) {
+    console.error("Register error:", err);
+    res.status(500).json({ error: "Failed to create account" });
+  }
+});
+
 app.post("/api/auth/login", async (req, res) => {
   try {
     const username = normalizeUsername(req.body?.username);
@@ -185,17 +224,7 @@ app.post("/api/auth/login", async (req, res) => {
     const existing = await usersCollection.findOne({ username });
 
     if (!existing) {
-      const passwordHash = await hashPassword(password);
-      const insertResult = await usersCollection.insertOne({
-        username,
-        passwordHash,
-        createdAt: now(),
-        updatedAt: now()
-      });
-
-      const userId = String(insertResult.insertedId);
-      const token = signToken({ uid: userId, uname: username, iat: Date.now() });
-      return res.status(201).json({ token, user: { id: userId, username }, created: true });
+      return res.status(401).json({ error: "Invalid username or password" });
     }
 
     if (!existing.passwordHash) {

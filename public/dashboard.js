@@ -1,4 +1,4 @@
-import { apiFetch, clearSession, fetchMe, getUser, login } from "./auth.js";
+import { apiFetch, clearSession, fetchMe, getUser } from "./auth.js";
 
 const params = new URLSearchParams(location.search);
 const focusCode = (params.get("code") || "").trim().toUpperCase();
@@ -9,17 +9,10 @@ const transcriptEl = document.getElementById("transcript");
 const analyzeBtn = document.getElementById("analyzeBtn");
 const analyzeStatus = document.getElementById("analyzeStatus");
 const analysisBox = document.getElementById("analysis");
-
-const loginGate = document.getElementById("loginGate");
 const dashMain = document.getElementById("dashMain");
-const usernameInput = document.getElementById("usernameInput");
-const loginBtn = document.getElementById("loginBtn");
-const passwordInput = document.getElementById("passwordInput");
-const loginStatus = document.getElementById("loginStatus");
 const logoutBtn = document.getElementById("logoutBtn");
 
 let currentUser = getUser();
-
 let selectedCode = focusCode || null;
 
 function fmtDate(d) {
@@ -70,7 +63,6 @@ function renderMeetings(items) {
       selectedCode = code;
       history.replaceState(null, "", `/?code=${encodeURIComponent(code)}`);
       loadMeeting(code);
-      // refresh highlight
       document.querySelectorAll(".listRow").forEach((el) => el.classList.remove("active"));
       row.classList.add("active");
     });
@@ -116,7 +108,6 @@ function renderMeetingDetail(data) {
     </div>
   `;
 
-  // Render stored analysis if present
   if (data.analysis) {
     renderAnalysis(data.analysis);
   } else {
@@ -135,14 +126,11 @@ function escapeHtml(str) {
 
 function renderAnalysis(a) {
   const summary = escapeHtml(a.summary || "");
-
   let suggestionsHtml = `<p class="muted">—</p>`;
 
   if (Array.isArray(a.suggestions) && a.suggestions.length) {
     suggestionsHtml = `<ul>${a.suggestions.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>`;
-  }
-
-  else if (typeof a.suggestions === "string" && a.suggestions.trim()) {
+  } else if (typeof a.suggestions === "string" && a.suggestions.trim()) {
     suggestionsHtml = `<p>${escapeHtml(a.suggestions)}</p>`;
   }
 
@@ -184,57 +172,23 @@ async function loadMeeting(code) {
 document.getElementById("refreshBtn").addEventListener("click", loadMeetings);
 
 async function boot() {
-  // Validate stored session (if any)
   currentUser = await fetchMe();
-
-  const isAuthed = !!currentUser;
-  loginGate.style.display = isAuthed ? "none" : "grid";
-  dashMain.style.display = isAuthed ? "grid" : "none";
-  logoutBtn.style.display = isAuthed ? "inline-block" : "none";
-
-  if (isAuthed) {
-    await loadMeetings();
+  if (!currentUser) {
+    clearSession();
+    location.href = "/sign-in";
+    return;
   }
+
+  dashMain.style.display = "grid";
+  logoutBtn.style.display = "inline-block";
+  await loadMeetings();
 }
-
-loginBtn?.addEventListener("click", async () => {
-  const username = (usernameInput?.value || "").trim();
-  const password = passwordInput?.value || "";
-  if (!username) {
-    loginStatus.textContent = "Enter a username.";
-    return;
-  }
-  if (!password) {
-    loginStatus.textContent = "Enter a password.";
-    return;
-  }
-
-  loginBtn.disabled = true;
-  loginStatus.textContent = "Signing in…";
-  try {
-    currentUser = await login(username, password);
-    loginStatus.textContent = "";
-    await boot();
-  } catch (e) {
-    console.error(e);
-    loginStatus.textContent = "Sign in failed.";
-  } finally {
-    loginBtn.disabled = false;
-  }
-});
 
 logoutBtn?.addEventListener("click", () => {
   clearSession();
-  location.href = "/";
+  location.href = "/sign-in";
 });
 
-[usernameInput, passwordInput].forEach((input) => {
-  input?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") loginBtn?.click();
-  });
-});
-
-// Use apiFetch for transcript analyze (needs auth)
 analyzeBtn.addEventListener("click", async () => {
   if (!selectedCode) return;
   const transcript = transcriptEl.value || "";
@@ -269,8 +223,6 @@ analyzeBtn.addEventListener("click", async () => {
 
 boot().catch((err) => {
   console.error(err);
-  // If auth failed, show login.
-  loginGate.style.display = "grid";
-  dashMain.style.display = "none";
-  meetingsList.innerHTML = `<p class="muted">Failed to load meetings.</p>`;
+  clearSession();
+  location.href = "/sign-in";
 });
