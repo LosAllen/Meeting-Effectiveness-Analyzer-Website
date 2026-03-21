@@ -18,6 +18,7 @@ const publicDir = path.join(__dirname, "..", "public");
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(publicDir, "dashboard.html"));
+  res.redirect('/sign-in');
 });
 
 app.get("/sign-in", (req, res) => {
