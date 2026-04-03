@@ -39,23 +39,91 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/ice", (req, res) => {
-  const iceServers = [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:global.stun.twilio.com:3478" }
+function defaultIceServers() {
+  return [
+    { urls: ["stun:stun.cloudflare.com:3478"] },
+    { urls: ["stun:stun.l.google.com:19302"] }
   ];
+}
+
+function normalizeIceUrls(urls) {
+  const list = Array.isArray(urls)
+    ? urls
+    : String(urls || "")
+        .split(/[\s,]+/)
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+  // Cloudflare notes that port 53 often times out in browsers, so filter it out.
+  return list.filter((value) => !/:53(?:\?|$)/.test(String(value)));
+}
+
+async function getCloudflareIceServers() {
+  const apiToken = process.env.CLOUDFLARE_TURN_API_TOKEN;
+  const keyId = process.env.CLOUDFLARE_TURN_KEY_ID;
+  const ttl = Number(process.env.CLOUDFLARE_TURN_TTL || 86400);
+
+  if (!apiToken || !keyId) return null;
+
+  const response = await fetch(
+    `https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(keyId)}/credentials/generate-ice-servers`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ ttl: Number.isFinite(ttl) && ttl > 0 ? ttl : 86400 })
+    }
+  );
+
+  if (!response.ok) {
+    const details = await response.text().catch(() => "");
+    throw new Error(`Cloudflare TURN request failed (${response.status}): ${details}`);
+  }
+
+  const payload = await response.json();
+  const servers = Array.isArray(payload?.iceServers) ? payload.iceServers : [];
+
+  return servers
+    .map((server) => {
+      const normalizedUrls = normalizeIceUrls(server?.urls);
+      if (!normalizedUrls.length) return null;
+      return {
+        ...server,
+        urls: normalizedUrls
+      };
+    })
+    .filter(Boolean);
+}
+
+app.get("/ice", async (req, res) => {
+  const iceServers = defaultIceServers();
+
+  try {
+    const cloudflareIceServers = await getCloudflareIceServers();
+    if (cloudflareIceServers?.length) {
+      return res.json({
+        provider: "cloudflare",
+        iceServers: [...iceServers, ...cloudflareIceServers]
+      });
+    }
+  } catch (err) {
+    console.error("Failed to generate Cloudflare TURN credentials:", err);
+  }
 
   const { TURN_URL, TURN_USERNAME, TURN_CREDENTIAL } = process.env;
-
   if (TURN_URL && TURN_USERNAME && TURN_CREDENTIAL) {
     iceServers.push({
-      urls: TURN_URL,
+      urls: normalizeIceUrls(TURN_URL),
       username: TURN_USERNAME,
       credential: TURN_CREDENTIAL
     });
+
+    return res.json({ provider: "static-turn", iceServers });
   }
 
-  res.json({ iceServers });
+  return res.json({ provider: "stun-only", iceServers });
 });
 
 function requireEnv(name) {

@@ -129,20 +129,23 @@ function removeRemote(peerId) {
 }
 
 async function getRtcConfig() {
-  // Server can optionally provide TURN creds. If none, it returns STUN-only.
   try {
     const res = await fetch("/ice", { cache: "no-store" });
     if (!res.ok) throw new Error("ice config not available");
     const data = await res.json();
-    if (data?.iceServers?.length) return { iceServers: data.iceServers };
+    if (data?.iceServers?.length) {
+      window.__meaIceProvider = data.provider || "unknown";
+      return { iceServers: data.iceServers };
+    }
   } catch {
     // fall through
   }
 
+  window.__meaIceProvider = "fallback-stun";
   return {
     iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:global.stun.twilio.com:3478" }
+      { urls: ["stun:stun.cloudflare.com:3478"] },
+      { urls: ["stun:stun.l.google.com:19302"] }
     ]
   };
 }
@@ -367,6 +370,7 @@ async function main() {
   await startLocalMedia();
 
   rtcConfig = await getRtcConfig();
+  const provider = window.__meaIceProvider || "unknown";
 
   const localTile = makeTile("You", true);
   localTile.videoEl.srcObject = localStream;
@@ -374,7 +378,7 @@ async function main() {
 
   hookControls(localTile);
 
-  setStatus("Connecting…");
+  setStatus(`Connecting… (${provider})`);
   ws = new WebSocket(wsUrl());
 
   ws.addEventListener("open", () => {
