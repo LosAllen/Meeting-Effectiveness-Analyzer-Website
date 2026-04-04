@@ -27,7 +27,7 @@ let micMuted = false;
 let videoOff = false;
 
 const enableAudioBtn = document.getElementById("enableAudioBtn");
-let audioUnlocked = false;
+let audioUnlocked = true;
 
 function showEnableAudio(show) {
   if (!enableAudioBtn) return;
@@ -52,6 +52,8 @@ enableAudioBtn?.addEventListener("click", async () => {
     await safePlay(t.videoEl);
   }
 });
+
+showEnableAudio(false);
 
 function wsUrl() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
@@ -81,7 +83,7 @@ function makeTile(label, muted = false) {
 
   const placeholder = document.createElement("div");
   placeholder.className = "cameraPlaceholder";
-  placeholder.textContent = "Camera Disabled";
+  placeholder.textContent = "Camera Not Found";
   placeholder.style.display = "none";
 
   const badge = document.createElement("div");
@@ -193,18 +195,10 @@ function createPeerConnection(peerId) {
     const tile = ensureRemoteTile(peerId);
     tile.videoEl.srcObject = ev.streams[0];
 
+    tile.videoEl.muted = false;
     const ok = await safePlay(tile.videoEl);
     if (!ok) {
-      tile.videoEl.muted = true;
-      await safePlay(tile.videoEl);
-      showEnableAudio(true);
-    } else {
-      if (!audioUnlocked) {
-        tile.videoEl.muted = true;
-        showEnableAudio(true);
-      } else {
-        tile.videoEl.muted = false;
-      }
+      setStatus("Connected, but this browser blocked autoplay for remote audio.");
     }
   };
 
