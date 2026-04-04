@@ -65,7 +65,9 @@ async function startLocalMedia() {
 }
 
 function updateStatus() {
-  setStatus(`In meeting ${code}. Peers: ${peers.size}`);
+  const remotePeerCount = peers.size;
+  const totalPeople = remotePeerCount + 1;
+  setStatus(`In meeting ${code}. People in meeting: ${totalPeople}`);
 }
 
 function makeTile(label, muted = false) {
@@ -83,7 +85,7 @@ function makeTile(label, muted = false) {
 
   const placeholder = document.createElement("div");
   placeholder.className = "cameraPlaceholder";
-  placeholder.textContent = "Camera Not Found";
+  placeholder.textContent = "Camera Disabled";
   placeholder.style.display = "none";
 
   const badge = document.createElement("div");
@@ -198,7 +200,7 @@ function createPeerConnection(peerId) {
     tile.videoEl.muted = false;
     const ok = await safePlay(tile.videoEl);
     if (!ok) {
-      setStatus("Connected, but this browser blocked autoplay for remote audio.");
+      updateStatus();
     }
   };
 
