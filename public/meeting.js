@@ -1,6 +1,7 @@
 const params = new URLSearchParams(location.search);
 const code = (params.get("code") || "").trim().toUpperCase();
 const role = (params.get("role") || "").trim();
+const displayName = (params.get("displayName") || "").trim();
 
 const codeLabel = document.getElementById("codeLabel");
 const roleLabel = document.getElementById("roleLabel");
@@ -20,7 +21,7 @@ const peerConnections = new Map(); // peerId -> RTCPeerConnection
 const remoteTiles = new Map();     // peerId -> tile object
 const peers = new Set();           // peerIds currently known (for counts)
 
-const pendingIce = new Map();      
+const pendingIce = new Map();
 
 let micMuted = false;
 let videoOff = false;
@@ -46,7 +47,6 @@ enableAudioBtn?.addEventListener("click", async () => {
   audioUnlocked = true;
   showEnableAudio(false);
 
-  // Try to play all remote videos unmuted now that we have a user gesture
   for (const [, t] of remoteTiles) {
     t.videoEl.muted = false;
     await safePlay(t.videoEl);
@@ -79,7 +79,11 @@ function makeTile(label, muted = false) {
   video.playsInline = true;
   video.muted = muted;
 
-  // Mute badge overlay
+  const placeholder = document.createElement("div");
+  placeholder.className = "cameraPlaceholder";
+  placeholder.textContent = "Camera Disabled";
+  placeholder.style.display = "none";
+
   const badge = document.createElement("div");
   badge.className = "badge";
   badge.title = "Muted";
@@ -88,6 +92,7 @@ function makeTile(label, muted = false) {
 
   tile.appendChild(tileLabel);
   tile.appendChild(badge);
+  tile.appendChild(placeholder);
   tile.appendChild(video);
   grid.appendChild(tile);
 
@@ -96,15 +101,27 @@ function makeTile(label, muted = false) {
     videoEl: video,
     labelEl: tileLabel,
     badgeEl: badge,
+    placeholderEl: placeholder,
     setMuted(isMuted) {
       badge.style.display = isMuted ? "flex" : "none";
+    },
+    setVideoOff(isVideoOff) {
+      placeholder.style.display = isVideoOff ? "flex" : "none";
+      video.style.opacity = isVideoOff ? "0" : "1";
+    },
+    setLabel(labelText) {
+      tileLabel.textContent = labelText;
     }
   };
 }
 
-function ensureRemoteTile(peerId) {
-  if (remoteTiles.has(peerId)) return remoteTiles.get(peerId);
-  const t = makeTile(`Peer ${peerId}`, false);
+function ensureRemoteTile(peerId, label = `Peer ${peerId}`) {
+  if (remoteTiles.has(peerId)) {
+    const existing = remoteTiles.get(peerId);
+    if (label) existing.setLabel(label);
+    return existing;
+  }
+  const t = makeTile(label, false);
   remoteTiles.set(peerId, t);
   return t;
 }
@@ -138,7 +155,6 @@ async function getRtcConfig() {
       return { iceServers: data.iceServers };
     }
   } catch {
-    // fall through
   }
 
   window.__meaIceProvider = "fallback-stun";
@@ -204,14 +220,13 @@ function createPeerConnection(peerId) {
 
   pc.oniceconnectionstatechange = () => {
     const state = pc.iceConnectionState;
-    const tile = ensureRemoteTile(peerId);
-    tile.labelEl.textContent = `Peer ${peerId} (${state})`;
+    const tile = remoteTiles.get(peerId);
+    if (!tile) return;
+    const currentName = tile.labelEl.dataset.baseLabel || tile.labelEl.textContent || `Peer ${peerId}`;
+    tile.setLabel(`${currentName} (${state})`);
   };
 
   pc.onconnectionstatechange = () => {
-    // For debugging why it fails on Render / real networks
-    // states: new -> connecting -> connected, or failed/disconnected
-    // console.log("pc connectionState", peerId, pc.connectionState);
   };
 
   peerConnections.set(peerId, pc);
@@ -271,6 +286,11 @@ async function handleIce(from, candidate) {
   try { await pc.addIceCandidate(candidate); } catch {}
 }
 
+function setTileBaseLabel(tile, label) {
+  tile.labelEl.dataset.baseLabel = label;
+  tile.setLabel(label);
+}
+
 function broadcastMediaState() {
   for (const peerId of peers) {
     ws.send(JSON.stringify({
@@ -309,6 +329,7 @@ function hookControls(localTile) {
     videoOff = !videoOff;
     localStream.getVideoTracks().forEach(t => (t.enabled = !videoOff));
     videoBtn.textContent = videoOff ? "Enable video" : "Disable video";
+    localTile.setVideoOff(videoOff);
     broadcastMediaState();
   });
 
@@ -338,14 +359,12 @@ function cleanup() {
 function cleanupAndClose() {
   cleanup();
 
-  // Participants get a survey when they leave.
   if (role === "join") {
     const qs = new URLSearchParams({ code, role, clientId: clientId || "" });
     location.href = `/survey.html?${qs.toString()}`;
     return;
   }
 
-  // Host leaving returns home.
   window.close();
   setTimeout(() => (location.href = "/"), 200);
 }
@@ -372,9 +391,11 @@ async function main() {
   rtcConfig = await getRtcConfig();
   const provider = window.__meaIceProvider || "unknown";
 
-  const localTile = makeTile("You", true);
+  const localTile = makeTile(displayName || "You", true);
   localTile.videoEl.srcObject = localStream;
   localTile.setMuted(false);
+  localTile.setVideoOff(false);
+  setTileBaseLabel(localTile, displayName || "You");
 
   hookControls(localTile);
 
@@ -382,7 +403,7 @@ async function main() {
   ws = new WebSocket(wsUrl());
 
   ws.addEventListener("open", () => {
-    ws.send(JSON.stringify({ type: "join-room", code, role }));
+    ws.send(JSON.stringify({ type: "join-room", code, role, displayName }));
     setStatus("Joined room. Syncing peers…");
   });
 
@@ -415,11 +436,14 @@ async function main() {
       }
 
       peers.clear();
-      members.forEach(id => peers.add(String(id)));
+      members.forEach((member) => peers.add(String(member.id)));
       updateStatus();
 
-      for (const peerId of members) {
-        ensureRemoteTile(peerId);
+      for (const member of members) {
+        const peerId = String(member.id);
+        const peerName = String(member.name || `Peer ${peerId}`);
+        const tile = ensureRemoteTile(peerId, peerName);
+        setTileBaseLabel(tile, peerName);
         createPeerConnection(peerId);
         await sendOffer(peerId);
       }
@@ -431,10 +455,8 @@ async function main() {
     if (msg.type === "meeting-ended") {
       cleanup();
       if (role === "host") {
-        // host sees results
         goToDashboard(code);
       } else {
-        // participants take a survey
         goToSurvey();
       }
       return;
@@ -447,13 +469,13 @@ async function main() {
 
     if (msg.type === "peer-joined") {
       const peerId = String(msg.peerId);
+      const peerName = String(msg.name || `Peer ${peerId}`);
       peers.add(peerId);
       updateStatus();
 
-      ensureRemoteTile(peerId);
+      const tile = ensureRemoteTile(peerId, peerName);
+      setTileBaseLabel(tile, peerName);
       createPeerConnection(peerId);
-
-      // Existing peers wait: the new peer will offer
       return;
     }
 
@@ -475,6 +497,7 @@ async function main() {
       } else if (data.kind === "media-state") {
         const tile = ensureRemoteTile(from);
         tile.setMuted(!!data.micMuted);
+        tile.setVideoOff(!!data.videoOff);
       }
       return;
     }

@@ -555,6 +555,11 @@ function getRoom(code) {
   return rooms.get(code);
 }
 
+function getClientDisplayName(ws) {
+  const fallback = ws.role === "host" ? "Host" : `Peer ${ws.clientId}`;
+  return String(ws.displayName || fallback).trim() || fallback;
+}
+
 function send(ws, obj) {
   if (ws.readyState === 1) ws.send(JSON.stringify(obj));
 }
@@ -576,10 +581,12 @@ wss.on("connection", (ws) => {
     if (msg.type === "join-room") {
       const code = String(msg.code || "").trim().toUpperCase();
       const role = String(msg.role || "join").trim();
+      const displayName = String(msg.displayName || "").trim();
       if (!code) return;
 
       ws.roomCode = code;
       ws.role = role;
+      ws.displayName = displayName || (role === "host" ? "Host" : `Peer ${ws.clientId}`);
       const room = getRoom(code);
 
       if (room.clients.size >= 10) {
@@ -617,12 +624,16 @@ wss.on("connection", (ws) => {
         { upsert: true }
       ).catch(() => {});
 
-      const members = Array.from(room.clients.keys()).filter((id) => id !== ws.clientId);
+      const members = Array.from(room.clients.entries())
+        .filter(([id]) => id !== ws.clientId)
+        .map(([id, peer]) => ({ id, name: getClientDisplayName(peer) }));
 
-      send(ws, { type: "room-joined", room: code, members, hostId: room.hostId });
+      send(ws, { type: "room-joined", room: code, members, hostId: room.hostId, displayName: getClientDisplayName(ws) });
 
       for (const [id, peer] of room.clients) {
-        if (id !== ws.clientId) send(peer, { type: "peer-joined", peerId: ws.clientId });
+        if (id !== ws.clientId) {
+          send(peer, { type: "peer-joined", peerId: ws.clientId, name: getClientDisplayName(ws) });
+        }
       }
       return;
     }

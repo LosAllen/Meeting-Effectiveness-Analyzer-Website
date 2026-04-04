@@ -1,3 +1,5 @@
+import { getUser } from "./auth.js";
+
 function randomCode(len = 6) {
   const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   let out = "";
@@ -5,11 +7,9 @@ function randomCode(len = 6) {
   return out;
 }
 
-function openMeetingPopup(code, role) {
-  // role: "host" or "join"
-  const url = `/meeting.html?code=${encodeURIComponent(code)}&role=${encodeURIComponent(role)}`;
+function openMeetingPopup(code, role, displayName) {
+  const url = `/meeting.html?code=${encodeURIComponent(code)}&role=${encodeURIComponent(role)}&displayName=${encodeURIComponent(displayName || "")}`;
 
-  // Pop-out window
   const w = 980, h = 680;
   const left = Math.max(0, (screen.width - w) / 2);
   const top = Math.max(0, (screen.height - h) / 2);
@@ -31,8 +31,11 @@ document.getElementById("hostBtn").addEventListener("click", () => {
     location.href = "/";
     return;
   }
+
+  const user = getUser();
+  const hostDisplayName = (user?.username || "Host").trim();
   const code = randomCode(6);
-  openMeetingPopup(code, "host");
+  openMeetingPopup(code, "host", hostDisplayName);
 });
 
 document.getElementById("joinBtn").addEventListener("click", () => {
@@ -41,5 +44,13 @@ document.getElementById("joinBtn").addEventListener("click", () => {
     alert("Enter a meeting code first.");
     return;
   }
-  openMeetingPopup(code, "join");
+
+  const enteredName = window.prompt("Enter your display name:", "") || "";
+  const displayName = enteredName.trim();
+  if (!displayName) {
+    alert("Please enter a display name before joining.");
+    return;
+  }
+
+  openMeetingPopup(code, "join", displayName);
 });

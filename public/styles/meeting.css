@@ -40,7 +40,6 @@ header {
   font-size: 14px;
 }
 
-/* Multi-person grid */
 .wrap {
   display: grid;
   gap: 10px;
@@ -51,7 +50,7 @@ header {
 .tile {
   border-radius: 12px;
   overflow: hidden;
-  background: #000;
+  background: linear-gradient(180deg, #04070d, #111a2d);
   position: relative;
   box-shadow: 0 12px 40px var(--shadow);
 }
@@ -73,6 +72,25 @@ header {
   aspect-ratio: 16 / 9;
   object-fit: cover;
   display: block;
+  transition: opacity 0.2s ease;
+}
+
+.cameraPlaceholder {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  text-align: center;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  background:
+    radial-gradient(circle at center, rgba(76, 134, 255, 0.18), transparent 45%),
+    linear-gradient(180deg, rgba(8, 12, 24, 0.95), rgba(17, 26, 45, 0.98));
+  z-index: 1;
 }
 
 .controls {
