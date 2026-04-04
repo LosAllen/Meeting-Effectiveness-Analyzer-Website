@@ -1,7 +1,7 @@
 const params = new URLSearchParams(location.search);
 const code = (params.get("code") || "").trim().toUpperCase();
 const role = (params.get("role") || "").trim();
-const displayName = (params.get("displayName") || "").trim();
+const queryDisplayName = (params.get("displayName") || "").trim();
 
 const codeLabel = document.getElementById("codeLabel");
 const roleLabel = document.getElementById("roleLabel");
@@ -17,10 +17,9 @@ let ws;
 let clientId = null;
 let localStream = null;
 
-const peerConnections = new Map(); // peerId -> RTCPeerConnection
-const remoteTiles = new Map();     // peerId -> tile object
-const peers = new Set();           // peerIds currently known (for counts)
-
+const peerConnections = new Map();
+const remoteTiles = new Map();
+const peers = new Set();
 const pendingIce = new Map();
 
 let micMuted = false;
@@ -42,6 +41,45 @@ async function safePlay(videoEl) {
     return false;
   }
 }
+
+function getStoredUser() {
+  try {
+    const raw = localStorage.getItem("mea_user");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveDisplayName() {
+  if (role === "host") {
+    const storedUser = getStoredUser();
+    return (queryDisplayName || storedUser?.username || "Host").trim();
+  }
+
+  const existing = queryDisplayName.trim();
+  if (existing) return existing;
+
+  let enteredName = "";
+  while (!enteredName) {
+    const value = window.prompt("Enter your display name:", "") || "";
+    enteredName = value.trim();
+
+    if (!enteredName) {
+      const shouldTryAgain = window.confirm(
+        "A display name is required to join this meeting. Press OK to try again, or Cancel to go back."
+      );
+      if (!shouldTryAgain) {
+        location.href = "/meeting";
+        throw new Error("Joining cancelled: missing display name.");
+      }
+    }
+  }
+
+  return enteredName;
+}
+
+const displayName = resolveDisplayName();
 
 enableAudioBtn?.addEventListener("click", async () => {
   audioUnlocked = true;
@@ -315,7 +353,7 @@ function hookControls(localTile) {
 
   muteBtn.addEventListener("click", () => {
     micMuted = !micMuted;
-    localStream.getAudioTracks().forEach(t => (t.enabled = !micMuted));
+    localStream.getAudioTracks().forEach((t) => (t.enabled = !micMuted));
     muteBtn.textContent = micMuted ? "Unmute mic" : "Mute mic";
     localTile.setMuted(micMuted);
     broadcastMediaState();
@@ -323,7 +361,7 @@ function hookControls(localTile) {
 
   videoBtn.addEventListener("click", () => {
     videoOff = !videoOff;
-    localStream.getVideoTracks().forEach(t => (t.enabled = !videoOff));
+    localStream.getVideoTracks().forEach((t) => (t.enabled = !videoOff));
     videoBtn.textContent = videoOff ? "Enable video" : "Disable video";
     localTile.setVideoOff(videoOff);
     broadcastMediaState();
@@ -349,7 +387,7 @@ function cleanup() {
 
   peers.clear();
 
-  if (localStream) localStream.getTracks().forEach(t => t.stop());
+  if (localStream) localStream.getTracks().forEach((t) => t.stop());
 }
 
 function cleanupAndClose() {
