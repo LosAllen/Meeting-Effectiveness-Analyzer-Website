@@ -58,7 +58,7 @@ Meetings consume significant organizational time and resources, yet many teams l
 - Express
 
 ### Database
-- PostgreSQL
+- Mongo DB
 
 ### Real-Time Communication
 - WebRTC
@@ -66,6 +66,9 @@ Meetings consume significant organizational time and resources, yet many teams l
 ### AI Integration
 - Gemini AI API
 
+### Turn Server
+- CloudFlare
+  
 ### Infrastructure
 - Cloud hosting
 - Git and GitHub for version control
@@ -108,11 +111,10 @@ This project demonstrates learning and application of:
 
 - [X] Requirements finalized
 - [X] Architecture designed
-- [X] Video/audio streaming prototype
-- [X] AI analysis prototype
+- [X] Video/audio streaming
+- [X] AI analysis
 - [X] Analytics dashboards
-- [ ] Deployment
-- [ ] Final presentation
+- [X] Deployment
 
 ---
 
